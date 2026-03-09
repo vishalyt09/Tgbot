@@ -1,46 +1,31 @@
 import telebot
-import threading
-import time
+from http.server import BaseHTTPRequestHandler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = "7946633204:AAEV88u_QTOv_-GuzB23E7uHcYwFN6BMz8I"
 CHANNEL = "@FFlikechannelV"
 GROUP = "@FFLIKEGROUPV"
-ADMIN_ID = 7727616420
 
 bot = telebot.TeleBot(TOKEN)
 
-# join check
 def joined(user_id):
     try:
         ch = bot.get_chat_member(CHANNEL, user_id)
         gp = bot.get_chat_member(GROUP, user_id)
-
-        if ch.status in ["member","administrator","creator"] and gp.status in ["member","administrator","creator"]:
-            return True
-        else:
-            return False
+        return ch.status in ["member","administrator","creator"] and gp.status in ["member","administrator","creator"]
     except:
         return False
 
 
 @bot.message_handler(commands=['start'])
 def start(msg):
-    user_id = msg.from_user.id
-
-    if joined(user_id):
+    if joined(msg.from_user.id):
         bot.send_message(msg.chat.id,"✅ Verification Successful!")
     else:
         markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("📢 Join Channel", url="https://t.me/yourchannel")
-        )
-        markup.add(
-            InlineKeyboardButton("👥 Join Group", url="https://t.me/yourgroup")
-        )
-        markup.add(
-            InlineKeyboardButton("✅ Verify", callback_data="verify")
-        )
+        markup.add(InlineKeyboardButton("📢 Join Channel", url="https://t.me/yourchannel"))
+        markup.add(InlineKeyboardButton("👥 Join Group", url="https://t.me/yourgroup"))
+        markup.add(InlineKeyboardButton("✅ Verify", callback_data="verify"))
 
         bot.send_message(
             msg.chat.id,
@@ -61,31 +46,13 @@ def verify(call):
         bot.answer_callback_query(call.id,"❌ Channel और Group join करें")
 
 
-# auto promotion
-def auto_promo():
-    while True:
-        try:
-            bot.send_message(GROUP,"🔥 Join our channel for updates!")
-        except:
-            pass
-        time.sleep(3600)
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
 
-threading.Thread(target=auto_promo).start()
+        update = telebot.types.Update.de_json(body.decode("utf-8"))
+        bot.process_new_updates([update])
 
-
-# admin panel
-@bot.message_handler(commands=['admin'])
-def admin(msg):
-    if msg.from_user.id == ADMIN_ID:
-        bot.send_message(msg.chat.id,
-        "⚙️ Admin Panel\n\n/sendpromo - send promotion")
-
-
-@bot.message_handler(commands=['sendpromo'])
-def promo(msg):
-    if msg.from_user.id == ADMIN_ID:
-        bot.send_message(GROUP,"📢 Admin Promotion Message")
-
-
-print("Bot Running...")
-bot.infinity_polling()
+        self.send_response(200)
+        self.end_headers()
